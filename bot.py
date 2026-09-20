@@ -4,9 +4,9 @@ import telebot
 from flask import Flask
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# 100% Secure: Token & Admin ID are fetched safely from Environment Variables
-TOKEN = os.environ.get("TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", 1232238066))
+# Naya Bot Token aur Admin ID yahan set hai
+TOKEN = "8863730982:AAHayH9O0YJxAYMbP_c6KCazbgIIelI07ok"
+ADMIN_ID = 1232238066
 CHANNEL_USERNAME = "@codex_777"  # Tera main public channel
 
 bot = telebot.TeleBot(TOKEN)
