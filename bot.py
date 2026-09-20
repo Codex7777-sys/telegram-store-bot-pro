@@ -4,9 +4,10 @@ import telebot
 from flask import Flask
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 
-# Yahan apna Naya Bot Token daal jo BotFather se mila hai
-TOKEN = "8998180780:AAFPptSf0yaA4stK1m9LcWwPPEcl9v5jXXA"
-ADMIN_ID = 1232238066
+# 100% Secure: Token & Admin ID are fetched safely from Environment Variables
+TOKEN = os.environ.get("TOKEN")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", 1232238066))
+CHANNEL_USERNAME = "@codex_777"  # Tera main public channel
 
 bot = telebot.TeleBot(TOKEN)
 products = {}
@@ -31,22 +32,24 @@ def start(message):
     bot.send_message(
         message.chat.id,
         "👑 **Welcome Admin!**\nSend any software/file photo with this"
-        " caption format:\n\n`100`\n`https://your-universal-link.com`",
+        " caption format to post securely directly to your channel"
+        f" `{CHANNEL_USERNAME}`:\n\n`100`\n`https://your-universal-link.com`",
         parse_mode="Markdown",
     )
   else:
     bot.send_message(
         message.chat.id,
-        "👋 Welcome to Secure Digital Store.\nPurchase resources securely using"
-        " Telegram Stars ⭐️",
+        "👋 Welcome to Secure Digital Store.\nExplore our channel"
+        f" {CHANNEL_USERNAME} and click **'Buy Now For Life Time'** on any"
+        " product to get instant secure access using Telegram Stars ⭐️.",
+        parse_mode="Markdown",
     )
 
 
 @bot.message_handler(content_types=["photo"])
 def handle_admin_upload(message):
   if message.from_user.id != ADMIN_ID:
-    bot.reply_to(message, "⛔ You are not authorized to upload products.")
-    return
+    return  # Unauthorized users ko completely ignore karega (Full Security)
 
   caption = message.caption or ""
   lines = [line.strip() for line in caption.split("\n") if line.strip()]
@@ -54,8 +57,8 @@ def handle_admin_upload(message):
   if len(lines) < 2:
     bot.reply_to(
         message,
-        "⚠️ **Invalid Format!**\nCaption mein ye likh:\nLine 1: Price in Stars"
-        " (e.g., 100)\nLine 2: Universal URL (Drive, Mega, etc.)",
+        "⚠️ **Invalid Format!**\nLine 1: Price in Stars (e.g., 100)\nLine 2:"
+        " Universal URL (Drive, Mega, etc.)",
         parse_mode="Markdown",
     )
     return
@@ -76,33 +79,47 @@ def handle_admin_upload(message):
     return
 
   file_id = message.photo[-1].file_id
-  payload = f"p_{message.message_id}"
+  payload = f"p_{message.message_id}_{os.urandom(4).hex()}"
 
+  # Link is securely stored in bot memory (Hidden from channel)
   products[payload] = {"link": file_link, "price": price_amount}
 
   markup = InlineKeyboardMarkup()
   markup.add(
       InlineKeyboardButton(
-          f"🛒 Buy Now ({price_amount} ⭐️)", callback_data=f"buy_{payload}"
+          f"⚡ Buy Now For Life Time ({price_amount} ⭐️)",
+          callback_data=f"buy_{payload}",
       )
   )
 
-  bot.send_photo(
-      message.chat.id,
-      file_id,
-      caption=(
-          f"✨ **Exclusive Digital Resource**\n\n🔒 Instant secure access"
-          f" delivered automatically after paying {price_amount} Telegram"
-          f" Stars ⭐️."
-      ),
-      parse_mode="Markdown",
-      reply_markup=markup,
-  )
-  bot.reply_to(
-      message,
-      "✅ **Post Ready!** Isko seedha apne channel par forward kar de.",
-      parse_mode="Markdown",
-  )
+  try:
+    # Attractive post sent directly to your main channel
+    bot.send_photo(
+        CHANNEL_USERNAME,
+        file_id,
+        caption=(
+            f"💎 **VIP EXCLUSIVE DIGITAL RESOURCE** 💎\n\n"
+            f"🚀 **Instant Lifetime Access**\n"
+            f"🛡️ 100% Secure & Verified Download\n"
+            f"📥 Direct private delivery to your DM instantly after"
+            f" payment!\n\n"
+            f"💎 **Price:** `{price_amount} Telegram Stars ⭐️`"
+        ),
+        parse_mode="Markdown",
+        reply_markup=markup,
+    )
+    bot.reply_to(
+        message,
+        f"✅ **Published Successfully!** Product seedha channel par live ho"
+        f" gaya hai: {CHANNEL_USERNAME}",
+        parse_mode="Markdown",
+    )
+  except Exception as e:
+    bot.reply_to(
+        message,
+        f"⚠️ Channel par post bhejte waqt error aaya. Make sure bot is Admin in"
+        f" {CHANNEL_USERNAME}.\nError: {e}",
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
@@ -117,23 +134,30 @@ def send_invoice_callback(call):
   prod_info = products[payload]
   price_amount = prod_info["price"]
 
-  prices = [LabeledPrice(label="Digital Product", amount=price_amount)]
+  prices = [LabeledPrice(label="Lifetime Digital Access", amount=price_amount)]
 
   try:
+    # Invoice sent strictly to the buyer's private DM
     bot.send_invoice(
-        chat_id=call.message.chat.id,
-        title="Secure Digital Store",
+        chat_id=call.from_user.id,
+        title="Lifetime Access Pass",
         description=(
-            f"Pay {price_amount} Stars to unlock instant secure access link."
+            f"Pay {price_amount} Stars to unlock instant secure lifetime"
+            " download link."
         ),
         invoice_payload=payload,
-        provider_token="",  # Blank for Telegram Stars (XTR)
+        provider_token="",  # Required blank for Telegram Stars (XTR)
         currency="XTR",
         prices=prices,
     )
+    bot.answer_callback_query(
+        call.id, "✅ Invoice sent to your DM! Check bot chat."
+    )
   except Exception:
     bot.answer_callback_query(
-        call.id, "⚠️ Error generating invoice. Try again.", show_alert=True
+        call.id,
+        "⚠️ Pehle bot ko personal chat mein aakar /start karein!",
+        show_alert=True,
     )
 
 
@@ -149,34 +173,31 @@ def got_payment(message):
 
   if prod_info:
     file_link = prod_info["link"]
+    # Link delivered securely ONLY to the buyer in DM
     bot.send_message(
         message.chat.id,
-        f"🎉 **Payment Successful!**\n\nYeh raha tera secure link:\n{file_link}\n\n⚠️"
-        f" *Kripya ise kisi ke sath share na karein.*",
+        f"🎉 **Payment Successful! Thank You!**\n\n🔑 Your Lifetime Secure"
+        f" Link:\n`{file_link}`\n\n⚠️ *Ye link confidential hai, kisi ke"
+        f" sath share na karein.*",
         parse_mode="Markdown",
     )
   else:
     bot.send_message(
         message.chat.id,
-        "⚠️ Payment received, but product link expired. Contact admin.",
+        "⚠️ Payment received, but link session expired. Contact admin.",
     )
 
 
 if __name__ == "__main__":
-  # Start Flask server in background thread for Render Free Tier
   t = threading.Thread(target=run_flask)
   t.daemon = True
   t.start()
 
-  # Automatically remove any old webhooks to prevent 409 conflict errors
   try:
     bot.remove_webhook()
   except Exception:
     pass
 
-  print(
-      "🚀 Universal Secure Cloud Bot is running 24/7 on Free Tier without"
-      " conflicts..."
-  )
+  print("🚀 100% Bulletproof Secure Digital Bot is running 24/7...")
   bot.infinity_polling()
   
